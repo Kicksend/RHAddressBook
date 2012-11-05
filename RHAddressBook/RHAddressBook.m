@@ -50,7 +50,7 @@ NSString * const RHAddressBookPersonAddressGeocodeCompleted = @"RHAddressBookPer
 @property (readonly, retain) NSThread *addressBookThread; // we could possibly make this public... any use?
 -(NSArray*)sourcesForABRecordRefs:(CFArrayRef)sourceRefs; //bulk performer
 -(NSArray*)groupsForABRecordRefs:(CFArrayRef)groupRefs; //bulk performer
--(NSArray*)peopleForABRecordRefs:(CFArrayRef)peopleRefs; //bulk performer
+-(NSArray*)peopleForABRecordRefs:(CFArrayRef)peopleRefs unified:(BOOL)unified; //bulk performer
 
 -(void)addressBookExternallyChanged:(NSNotification*)notification; //notification on external changes. (revert if no local changes so always up-to-date)
 
@@ -478,12 +478,25 @@ NSString * const RHAddressBookPersonAddressGeocodeCompleted = @"RHAddressBookPer
     [_addressBookThread rh_performBlock:^{
         CFArrayRef peopleRefs = ABAddressBookCopyArrayOfAllPeople(_addressBookRef);
         if (peopleRefs){
-            result = arc_retain([self peopleForABRecordRefs:peopleRefs]);
+            result = arc_retain([self peopleForABRecordRefs:peopleRefs unified:NO]);
             CFRelease(peopleRefs);
         }
     }];
     return arc_autorelease(result);
 }
+
+-(NSArray*)peopleUnified{
+    __block NSArray *result = nil;
+    [_addressBookThread rh_performBlock:^{
+        CFArrayRef peopleRefs = ABAddressBookCopyArrayOfAllPeople(_addressBookRef);
+        if (peopleRefs){
+            result = arc_retain([self peopleForABRecordRefs:peopleRefs unified:YES]);
+            CFRelease(peopleRefs);
+        }
+    }];
+    return arc_autorelease(result);
+}
+
 
 -(long)numberOfPeople{
     __block long result = 0;
@@ -505,7 +518,7 @@ NSString * const RHAddressBookPersonAddressGeocodeCompleted = @"RHAddressBookPer
 
                 //sort 
                 CFArraySortValues(mutablePeopleRefs, CFRangeMake(0, CFArrayGetCount(mutablePeopleRefs)), (CFComparatorFunction) ABPersonComparePeopleByName, (void*) ordering);
-                result = arc_retain([self peopleForABRecordRefs:mutablePeopleRefs]);
+                result = arc_retain([self peopleForABRecordRefs:mutablePeopleRefs unified:NO]);
                 CFRelease(mutablePeopleRefs);
                 
             }
@@ -533,7 +546,7 @@ NSString * const RHAddressBookPersonAddressGeocodeCompleted = @"RHAddressBookPer
     [_addressBookThread rh_performBlock:^{
         CFArrayRef peopleRefs = ABAddressBookCopyPeopleWithName(_addressBookRef, (__bridge CFStringRef)name);
         if (peopleRefs) {
-            result = arc_retain([self peopleForABRecordRefs:peopleRefs]);
+            result = arc_retain([self peopleForABRecordRefs:peopleRefs unified:NO]);
             CFRelease(peopleRefs);
         }
     }];
@@ -606,18 +619,41 @@ NSString * const RHAddressBookPersonAddressGeocodeCompleted = @"RHAddressBookPer
 
 }
 
--(NSArray*)peopleForABRecordRefs:(CFArrayRef)peopleRefs{
+-(NSArray*)peopleForABRecordRefs:(CFArrayRef)peopleRefs unified:(BOOL)unified
+{
     NSMutableArray *people = [NSMutableArray array];
+    NSMutableArray *contactsToIgnore = [NSMutableArray array];
 
     [_addressBookThread rh_performBlock:^{
-
-        for (CFIndex i = 0; i < CFArrayGetCount(peopleRefs); i++) {
+        for (CFIndex i = 0; i < CFArrayGetCount(peopleRefs); i++)
+        {
             ABRecordRef personRef = CFArrayGetValueAtIndex(peopleRefs, i);
-            
-            RHPerson *person = [self personForABRecordRef:personRef];
-            if (person) [people addObject:person];
+            if (unified)
+            {
+                CFArrayRef linkredRefs = ABPersonCopyArrayOfAllLinkedPeople(personRef);
+                if (CFArrayGetCount(linkredRefs) > 1)
+                {
+                    for (CFIndex i = 1; i < CFArrayGetCount(linkredRefs); i++)
+                    {
+                        ABRecordRef linkedRef = CFArrayGetValueAtIndex(linkredRefs, i);
+                        [contactsToIgnore addObject:@(ABRecordGetRecordID(linkedRef))];
+                    }
+                }
+
+                if (![contactsToIgnore containsObject:@(ABRecordGetRecordID(personRef))])
+                {
+                    RHPerson *person = [self personForABRecordRef:personRef];
+                    if(person) [people addObject:person];
+                };
+            }
+            else
+            {
+                RHPerson *person = [self personForABRecordRef:personRef];
+                if (person) [people addObject:person];
+            }
         }
     }];
+    
     return [NSArray arrayWithArray:people];
 }
 
