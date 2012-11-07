@@ -82,7 +82,7 @@ typedef enum RHAuthorizationStatus {
 -(RHGroup*)groupForABRecordID:(ABRecordID)groupID; //returns nil if not found in the current ab, eg unsaved record from another ab.
 
 -(NSArray*)people;
--(NSArray*)peopleUnified;
+
 -(long)numberOfPeople;
 -(NSArray*)peopleOrderedBySortOrdering:(ABPersonSortOrdering)ordering;
 -(NSArray*)peopleOrderedByUsersPreference; //preferred

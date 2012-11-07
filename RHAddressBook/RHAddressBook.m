@@ -478,25 +478,12 @@ NSString * const RHAddressBookPersonAddressGeocodeCompleted = @"RHAddressBookPer
     [_addressBookThread rh_performBlock:^{
         CFArrayRef peopleRefs = ABAddressBookCopyArrayOfAllPeople(_addressBookRef);
         if (peopleRefs){
-            result = arc_retain([self peopleForABRecordRefs:peopleRefs unified:NO]);
-            CFRelease(peopleRefs);
-        }
-    }];
-    return arc_autorelease(result);
-}
-
--(NSArray*)peopleUnified{
-    __block NSArray *result = nil;
-    [_addressBookThread rh_performBlock:^{
-        CFArrayRef peopleRefs = ABAddressBookCopyArrayOfAllPeople(_addressBookRef);
-        if (peopleRefs){
             result = arc_retain([self peopleForABRecordRefs:peopleRefs unified:YES]);
             CFRelease(peopleRefs);
         }
     }];
     return arc_autorelease(result);
 }
-
 
 -(long)numberOfPeople{
     __block long result = 0;
