@@ -632,6 +632,7 @@ NSString * const RHAddressBookPersonAddressGeocodeCompleted = @"RHAddressBookPer
                     RHPerson *person = [self personForABRecordRef:personRef];
                     if(person) [people addObject:person];
                 };
+                CFRelease(linkredRefs);
             }
             else
             {
